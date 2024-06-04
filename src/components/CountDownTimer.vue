@@ -1,6 +1,10 @@
 <template>
-  <div class="wrap flex justify-center flex-col items-center h-screen">
-    <h1 class="text-white">Time until <strong class="ml-2">Payday</strong></h1>
+  <div
+    class="wrap flex justify-center gap-20 flex-col items-center min-h-screen py-10 font-sans"
+  >
+    <h1 class="text-white px-10">
+      Time until <strong class="">Payday</strong>
+    </h1>
 
     <div
       v-show="!loading"
@@ -88,6 +92,8 @@
       </div>
     </div>
 
+    <p v-show="!loading" class="text-white">Payday: {{ payday }}</p>
+
     <div v-show="loading" role="status" class="max-w-sm animate-pulse">
       <div class="flex flex-col md:flex-row gap-6 justify-center">
         <div class="flex flex-row gap-2">
@@ -116,24 +122,61 @@ import { ref, onMounted, onBeforeUnmount } from "vue";
 import { gsap, Quart } from "gsap";
 
 const loading = ref(true);
+const payday = ref("");
 
 const calculateInitialTotalSeconds = () => {
   const now = new Date();
   const currentYear = now.getFullYear();
   const currentMonth = now.getMonth();
-  const nextMonth = (currentMonth + 1) % 12;
-  const nextMonthYear = nextMonth === 0 ? currentYear + 1 : currentYear;
+  const currentDate = now.getDate();
 
-  const targetDate = new Date(nextMonthYear, nextMonth, 15, 0, 0, 0);
+  let targetMonth = currentMonth;
+  let targetYear = currentYear;
+
+  if (currentDate >= 15) {
+    targetMonth = (currentMonth + 1) % 12;
+    if (targetMonth === 0) {
+      targetYear = currentYear + 1;
+    }
+  }
+
+  let targetDate = new Date(targetYear, targetMonth, 15, 0, 0, 0);
+
+  // If the target date falls on a weekend, adjust to the following Monday
+  const dayOfWeek = targetDate.getDay();
+  if (dayOfWeek === 6) {
+    // If Saturday, add 2 days
+    targetDate.setDate(targetDate.getDate() + 2);
+  } else if (dayOfWeek === 0) {
+    // If Sunday, add 1 day
+    targetDate.setDate(targetDate.getDate() + 1);
+  }
+
+  payday.value = formatDate(targetDate);
+
   const differenceInSeconds = Math.floor((targetDate - now) / 1000);
 
   return differenceInSeconds;
 };
 
-const initialDays = 0;
-const initialHours = 0;
-const initialMinutes = 0;
-const initialSeconds = 0;
+function formatDate(date) {
+  const daysOfWeek = [
+    "Sunday",
+    "Monday",
+    "Tuesday",
+    "Wednesday",
+    "Thursday",
+    "Friday",
+    "Saturday",
+  ];
+
+  const dayOfWeek = daysOfWeek[date.getDay()];
+  const day = date.getDate().toString().padStart(2, "0");
+  const month = (date.getMonth() + 1).toString().padStart(2, "0");
+  const year = date.getFullYear();
+
+  return `${dayOfWeek} ${day}/${month}/${year}`;
+}
 
 const totalSeconds = ref(calculateInitialTotalSeconds());
 
@@ -213,13 +256,12 @@ const animateFigure = (oldValue, newValue, selector) => {
   }
 };
 
-onMounted(() => {
-  (async () => {
-    await startCountdown();
-    setTimeout(() => {
-      loading.value = false;
-    }, 2000);
-  })();
+onMounted(async() => {
+  const response = await startCountdown();
+  setTimeout(() => {
+    loading.value = false
+  }, 2000);
+  console.log('countdown started', response)
 });
 
 onBeforeUnmount(() => {
@@ -238,7 +280,6 @@ a {
 }
 
 h1 {
-  margin-bottom: 60px;
   text-align: center;
   font: 300 2.25em "Lato";
   text-transform: uppercase;
